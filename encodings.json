@@ -1,0 +1,72 @@
+{
+  "binary_map": {
+    "gender": {
+      "Female": 0,
+      "Male": 1
+    },
+    "Partner": {
+      "No": 0,
+      "Yes": 1
+    },
+    "Dependents": {
+      "No": 0,
+      "Yes": 1
+    },
+    "PhoneService": {
+      "No": 0,
+      "Yes": 1
+    },
+    "PaperlessBilling": {
+      "No": 0,
+      "Yes": 1
+    },
+    "Churn": {
+      "No": 0,
+      "Yes": 1
+    },
+    "MultipleLines": {
+      "No": 0,
+      "Yes": 1
+    },
+    "OnlineSecurity": {
+      "No": 0,
+      "Yes": 1
+    },
+    "OnlineBackup": {
+      "No": 0,
+      "Yes": 1
+    },
+    "DeviceProtection": {
+      "No": 0,
+      "Yes": 1
+    },
+    "TechSupport": {
+      "No": 0,
+      "Yes": 1
+    },
+    "StreamingTV": {
+      "No": 0,
+      "Yes": 1
+    },
+    "StreamingMovies": {
+      "No": 0,
+      "Yes": 1
+    }
+  },
+  "contract_map": {
+    "Month-to-month": 0,
+    "One year": 1,
+    "Two year": 2
+  },
+  "internet_service_map": {
+    "DSL": 0,
+    "Fiber optic": 1,
+    "No": 2
+  },
+  "payment_method_map": {
+    "Electronic check": 0,
+    "Mailed check": 1,
+    "Bank transfer (automatic)": 2,
+    "Credit card (automatic)": 3
+  }
+}

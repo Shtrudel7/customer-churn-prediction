@@ -2,20 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-COPY churn_model.joblib .
-COPY encodings.json .
-COPY app.py .
-COPY ui.py .
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends supervisor libgomp1 && \
+    rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем зависимости и системные библиотеки
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# ВОТ ЗДЕСЬ МЫ ДОБАВИЛИ libgomp1 (и чистим кэш для уменьшения размера)
-RUN apt-get update && apt-get install -y supervisor libgomp1 && rm -rf /var/lib/apt/lists/*
-
+COPY app.py ui.py churn_model.joblib encodings.json ./
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 EXPOSE 8000 8501
-
-CMD ["/usr/bin/supervisord"]
+CMD ["/usr/bin/supervisord", "-n"]

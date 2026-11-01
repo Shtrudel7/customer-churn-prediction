@@ -1,57 +1,82 @@
-import streamlit as st
+import os
+
 import requests
+import streamlit as st
 
-st.set_page_config(page_title="Churn Predictor", layout="centered")
-st.title("Customer Churn Prediction")
-st.write("Enter customer data to see the churn probability and top reasons.")
+API_URL = os.getenv("CHURN_API_URL", "http://localhost:8000").rstrip("/")
 
-# Create the form
-with st.form("customer_form"):
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        tenure = st.slider("Tenure (months)", 0, 72, 12)
-        monthly = st.number_input("Monthly Charges ($)", 0.0, 150.0, 50.0)
-        total = st.number_input("Total Charges ($)", 0.0, 10000.0, 600.0)
-        contract = st.selectbox("Contract Type", ["Month-to-month", "One year", "Two year"])
-        payment = st.selectbox("Payment Method", ["Electronic check", "Mailed check", "Bank transfer (automatic)", "Credit card (automatic)"])
-        
-    with col2:
-        internet = st.selectbox("Internet Service", ["DSL", "Fiber optic", "No"])
-        security = st.selectbox("Online Security", ["No", "Yes"])
-        tech = st.selectbox("Tech Support", ["No", "Yes"])
-        paperless = st.selectbox("Paperless Billing", ["No", "Yes"])
-        
-    # Submit button
-    submitted = st.form_submit_button("Predict")
-    
-    if submitted:
-        # Form JSON (default values for missing fields)
-        payload = {
-            "gender": "Male", "SeniorCitizen": 0, "Partner": "No", "Dependents": "No",
-            "tenure": tenure, "PhoneService": "Yes", "MultipleLines": "No",
-            "InternetService": internet, "OnlineSecurity": security,
-            "OnlineBackup": "No", "DeviceProtection": "No", "TechSupport": tech,
-            "StreamingTV": "No", "StreamingMovies": "No", "Contract": contract,
-            "PaperlessBilling": paperless, "PaymentMethod": payment,
-            "MonthlyCharges": monthly, "TotalCharges": total
-        }
-        
-        # Send request to FastAPI
-        try:
-            response = requests.post("http://localhost:8000/predict", json=payload)
-            result = response.json()
-            
-            st.divider()
-            # Display result
-            prob = result["churn_probability"]
-            st.metric("Churn Probability", f"{prob*100:.1f}%", 
-                      delta="High Risk" if prob > 0.6 else "Low Risk", 
-                      delta_color="inverse" if prob > 0.6 else "normal")
-            
-            st.subheader("Top-3 Reasons:")
-            for factor in result["top_factors"]:
-                st.write(f"- **{factor['feature']}**: {factor['direction']} ({factor['impact']:+.2f})")
-                
-        except Exception as e:
-            st.error(f"API Connection Error: {e}")
+st.set_page_config(page_title="Customer churn", layout="centered")
+st.title("Customer churn prediction")
+st.caption("Estimate churn risk for a telecom customer.")
+
+with st.form("customer"):
+    st.subheader("Customer")
+    left, right = st.columns(2)
+    with left:
+        gender = st.selectbox("Gender", ["Female", "Male"])
+        senior = st.checkbox("Senior citizen")
+        partner = st.selectbox("Partner", ["No", "Yes"])
+        dependents = st.selectbox("Dependents", ["No", "Yes"])
+    with right:
+        tenure = st.number_input("Tenure (months)", min_value=0, max_value=120, value=12)
+        contract = st.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
+        paperless = st.selectbox("Paperless billing", ["Yes", "No"])
+
+    st.subheader("Services")
+    left, right = st.columns(2)
+    with left:
+        phone = st.selectbox("Phone service", ["Yes", "No"])
+        lines = st.selectbox("Multiple lines", ["No", "Yes"], disabled=phone == "No")
+        internet = st.selectbox("Internet service", ["DSL", "Fiber optic", "No"])
+        security = st.selectbox("Online security", ["No", "Yes"], disabled=internet == "No")
+        backup = st.selectbox("Online backup", ["No", "Yes"], disabled=internet == "No")
+    with right:
+        protection = st.selectbox("Device protection", ["No", "Yes"], disabled=internet == "No")
+        tech_support = st.selectbox("Tech support", ["No", "Yes"], disabled=internet == "No")
+        tv = st.selectbox("Streaming TV", ["No", "Yes"], disabled=internet == "No")
+        movies = st.selectbox("Streaming movies", ["No", "Yes"], disabled=internet == "No")
+
+    st.subheader("Billing")
+    monthly = st.number_input("Monthly charges ($)", min_value=0.0, value=50.0, step=1.0)
+    total = st.number_input("Total charges ($)", min_value=0.0, value=600.0, step=10.0)
+    payment = st.selectbox("Payment method", [
+        "Electronic check", "Mailed check", "Bank transfer (automatic)",
+        "Credit card (automatic)",
+    ])
+    submitted = st.form_submit_button("Predict churn")
+
+if submitted:
+    payload = {
+        "gender": gender,
+        "SeniorCitizen": int(senior),
+        "Partner": partner,
+        "Dependents": dependents,
+        "tenure": tenure,
+        "PhoneService": phone,
+        "MultipleLines": lines if phone == "Yes" else "No phone service",
+        "InternetService": internet,
+        "OnlineSecurity": security if internet != "No" else "No internet service",
+        "OnlineBackup": backup if internet != "No" else "No internet service",
+        "DeviceProtection": protection if internet != "No" else "No internet service",
+        "TechSupport": tech_support if internet != "No" else "No internet service",
+        "StreamingTV": tv if internet != "No" else "No internet service",
+        "StreamingMovies": movies if internet != "No" else "No internet service",
+        "Contract": contract,
+        "PaperlessBilling": paperless,
+        "PaymentMethod": payment,
+        "MonthlyCharges": monthly,
+        "TotalCharges": total,
+    }
+
+    try:
+        response = requests.post(f"{API_URL}/predict", json=payload, timeout=20)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        st.error(f"Could not get a prediction: {exc}")
+    else:
+        result = response.json()
+        st.metric("Estimated churn probability", f"{result['churn_probability']:.1%}")
+        st.write(f"Risk band: **{result['risk_level']}**")
+        st.caption("Largest SHAP contributions (log-odds, not probability changes):")
+        for item in result["top_factors"]:
+            st.write(f"{item['feature']}: {item['direction']} ({item['impact']:+.3f})")
